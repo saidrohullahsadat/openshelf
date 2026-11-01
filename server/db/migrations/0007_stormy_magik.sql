@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "notify_contribution_reviews" boolean DEFAULT true NOT NULL;

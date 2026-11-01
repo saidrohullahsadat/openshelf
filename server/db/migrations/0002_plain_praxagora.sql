@@ -1,0 +1,2 @@
+ALTER TABLE "downloads" ADD COLUMN "download_count" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
+ALTER TABLE "downloads" ADD COLUMN "last_downloaded_at" timestamp with time zone DEFAULT now() NOT NULL;

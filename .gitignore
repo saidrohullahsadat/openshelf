@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+.env.mobile
+
+# Uploaded files and private storage
+storage/
+mnt/
+
+# Logs
+npm-debug.log*
+*.log
+
+# Temporary files
+text.txt
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

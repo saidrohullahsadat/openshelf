@@ -1,0 +1,1 @@
+ALTER TABLE "book_ratings" ALTER COLUMN "status" SET DEFAULT 'pending';

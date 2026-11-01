@@ -1,0 +1,10 @@
+import "dotenv/config";
+import pg from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { createApp } from "./app.js";
+const pool=new pg.Pool({connectionString:process.env.DATABASE_URL, max:15, ssl:process.env.DATABASE_SSL==="true"?{rejectUnauthorized:true}:undefined});
+pool.on("error",e=>console.error("Database pool error:",e.message));
+const app=createApp(drizzle(pool));
+const server=app.listen(Number(process.env.PORT||3000),()=>console.log(`Open Shelf API listening on :${process.env.PORT||3000}`));
+const shutdown=()=>server.close(()=>pool.end(()=>process.exit(0)));
+process.on("SIGINT",shutdown);process.on("SIGTERM",shutdown);
