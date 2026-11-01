@@ -18,7 +18,7 @@ It provides readers with a complete digital reading experience, including book d
 
 Administrators have access to a dedicated dashboard for managing books, categories, users, contributions, reviews, reports, download policies, and library activity.
 
-OpenShelf is designed to provide an organized, accessible, and reader-focused experience across desktop and mobile devices.
+OpenShelf is designed to provide an organized, accessible, and reader-focused experience across desktop and mobile browsers.
 
 ## Features
 
@@ -32,7 +32,7 @@ OpenShelf is designed to provide an organized, accessible, and reader-focused ex
 
 ### 📖 Reading Experience
 
-- Read PDF books directly inside the application.
+- Read PDF books directly inside the web application.
 - Download books with a credit-based allowance.
 - Save reading progress.
 - Bookmark individual PDF pages.
@@ -72,12 +72,12 @@ OpenShelf is designed to provide an organized, accessible, and reader-focused ex
 
 OpenShelf uses a distinct-book download allowance:
 
-| Rule                             | Allowance |
-| -------------------------------- | --------: |
-| Initial free downloads           |   3 books |
-| Published contributions required |         3 |
-| Additional download credits      |        10 |
-| Daily download limit             | 10 events |
+| Rule | Allowance |
+|---|---:|
+| Initial free downloads | 3 books |
+| Published contributions required | 3 |
+| Additional download credits | 10 |
+| Daily download limit | 10 events |
 
 - Downloading a new book consumes one distinct-book credit.
 - Downloading the same book again does not consume another distinct-book credit.
@@ -99,7 +99,7 @@ OpenShelf uses a distinct-book download allowance:
 
 ### 🌐 Interface & Accessibility
 
-- Responsive desktop and mobile layouts.
+- Responsive desktop and mobile-browser layouts.
 - Modern editorial-style interface.
 - Dark theme.
 - English and partial Pashto translations.
@@ -107,51 +107,45 @@ OpenShelf uses a distinct-book download allowance:
 - Progressive Web App (PWA) support.
 - Offline-cached application shell.
 
-### 📱 Mobile Application Support
-
-- Capacitor 7 integration.
-- Android project support.
-- iOS project support.
-- Shared frontend and backend architecture.
-
 ---
 
 ## Technology Stack
 
-| Technology            | Purpose                           |
-| --------------------- | --------------------------------- |
-| React                 | Frontend interface                |
-| Vite                  | Development server and build tool |
-| JavaScript            | Application programming           |
-| Tailwind CSS / CSS    | Styling                           |
-| Node.js               | Backend runtime                   |
-| Express.js            | REST API                          |
-| PostgreSQL            | Relational database               |
-| Drizzle ORM           | Database queries and schema       |
-| Argon2id              | Password hashing                  |
-| Google OpenID Connect | Authentication                    |
-| PDF                   | Digital book format               |
-| Capacitor 7           | Native mobile support             |
+| Technology | Purpose |
+|---|---|
+| React | Frontend interface |
+| Vite | Development server and build tool |
+| JavaScript | Application programming |
+| CSS | Styling |
+| Node.js | Backend runtime |
+| Express.js | REST API |
+| PostgreSQL | Relational database |
+| Drizzle ORM | Database queries and schema |
+| Argon2id | Password hashing |
+| Google OpenID Connect | Authentication |
+| PDF | Digital book format |
 
 ## Project Structure
 
 ```text
 OpenShelf/
-├── client/                 # Frontend application
-├── server/                 # Express API and backend
-│   └── db/                 # Database schema and migrations
-├── public/                 # Public assets and PWA files
-├── scripts/                # Project scripts
-├── android/                # Android application
-├── ios/                    # iOS application
-├── storage/                # Private uploaded PDF files
-├── dist/                   # Production build output
-├── app.js                  # Application entry
-├── auth.js                 # Authentication
-├── index.html              # HTML entry point
-├── drizzle.config.js       # Drizzle configuration
-├── vite.config.js          # Vite configuration
-├── capacitor.config.json   # Capacitor configuration
+├── src/                       # React frontend
+│   ├── AdminPage.jsx
+│   ├── main.jsx
+│   └── style.css
+├── server/                    # Express API and backend
+│   ├── db/                    # Database schema and migrations
+│   ├── middleware/            # Authentication middleware
+│   ├── routes/                # API routes
+│   └── services/              # Business logic and services
+├── public/                    # Public assets and PWA files
+├── scripts/                   # Project scripts
+├── storage/                   # Private uploaded PDF files
+├── app.js                     # Application entry
+├── auth.js                    # Authentication
+├── index.html                 # HTML entry point
+├── drizzle.config.js          # Drizzle configuration
+├── vite.config.js             # Vite configuration
 ├── package.json
 ├── .env.example
 └── README.md
@@ -190,25 +184,23 @@ Create your environment file:
 cp .env.example .env
 ```
 
-Configure your database connection and administrator credentials in `.env`.
+Configure your database connection and other required application settings in `.env`.
 
 Example:
 
 ```env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/library
+NODE_ENV=development
+PORT=3000
 
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your-secure-password
+DATABASE_URL=postgres://postgres:your-password@localhost:5432/library
 
+SESSION_DAYS=14
 STORAGE_DIR=./storage
-MAX_UPLOAD_MB=50
-
-FREE_DOWNLOADS=3
-CONTRIBUTIONS_PER_UNLOCK=3
-DOWNLOADS_PER_UNLOCK=10
 ```
 
 Use your own secure credentials. Never commit `.env` to GitHub.
+
+Check the application source and configuration for any additional environment variables required by your setup.
 
 ### 4. Create the database
 
@@ -229,7 +221,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-The development seed provides sample books and starter categories. It is not intended for production.
+The development seed provides sample data where configured. It is not intended for production.
 
 ### 7. Start the application
 
@@ -239,13 +231,15 @@ npm run dev
 
 The development services use:
 
-| Service     | URL                          |
-| ----------- | ---------------------------- |
-| Frontend    | http://localhost:5173        |
-| Backend API | http://localhost:3000        |
-| API base    | http://localhost:3000/api/v1 |
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:3000 |
+| API base | http://localhost:3000/api/v1 |
 
 The Vite development server proxies `/api` requests to the Express backend.
+
+---
 
 ## Google Authentication
 
@@ -265,36 +259,32 @@ http://localhost:3000/api/v1/auth/google/callback
 ```env
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-GOOGLE_REDIRECT_URI=http://localhost:3000/api/v1/auth/google/callback
-
-APP_URL=http://localhost:5173
 ```
 
-Google authentication requires valid OAuth credentials. Native Android and iOS Google sign-in require additional redirect and deep-link configuration.
+Google authentication requires valid OAuth credentials and matching redirect configuration.
 
 ## API Overview
 
-All backend endpoints use:
+The backend API uses the following base path:
 
 ```text
 /api/v1
 ```
 
-| Module           | Main endpoints                                              |
-| ---------------- | ----------------------------------------------------------- |
-| Authentication   | `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me` |
-| Books            | `/books`, `/books/:id`                                      |
-| Categories       | `/categories`                                               |
-| Contributions    | `/contributions`                                            |
-| Personal library | `/me/books`, `/me/list`, `/me/likes`                        |
-| Downloads        | `/me/downloads`, `/me/credits`                              |
-| Reading          | `/me/reading`, `/books/:id/read`, `/books/:id/progress`     |
-| Recommendations  | `/books/:id/recommendations`                                |
-| Ratings          | `/books/:id/ratings`                                        |
-| Notifications    | `/me/notifications`                                         |
-| Administration   | `/admin/overview`, `/admin/contributions`                   |
-| Audit logs       | `/admin/audit-logs`                                         |
+| Module | Main endpoints |
+|---|---|
+| Authentication | `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me` |
+| Books | `/books`, `/books/:id` |
+| Categories | `/categories` |
+| Contributions | `/contributions` |
+| Personal library | `/me/books`, `/me/list`, `/me/likes` |
+| Downloads | `/me/downloads`, `/me/credits` |
+| Reading | `/me/reading`, `/books/:id/read`, `/books/:id/progress` |
+| Recommendations | `/books/:id/recommendations` |
+| Ratings | `/books/:id/ratings` |
+| Notifications | `/me/notifications` |
+| Administration | `/admin/overview`, `/admin/contributions` |
+| Audit logs | `/admin/audit-logs` |
 
 Additional endpoints support bookmarks, favorites, reports, moderation, user management, and credit-policy administration.
 
@@ -325,7 +315,7 @@ Create a production build:
 npm run build
 ```
 
-The latest recorded verification reported:
+The latest recorded development verification reported:
 
 - Unit tests: 12/12 passed.
 - Production frontend build: passed.
@@ -333,32 +323,6 @@ The latest recorded verification reported:
 - Development database migrations: applied successfully.
 
 These are recorded development results, not a guarantee of production readiness.
-
-## Mobile Development
-
-OpenShelf includes Capacitor support for Android and iOS.
-
-Configure the mobile API URL using `.env.mobile` based on `.env.mobile.example`.
-
-Synchronize the native projects:
-
-```bash
-npm run mobile:sync
-```
-
-Open the Android project:
-
-```bash
-npm run mobile:android
-```
-
-Open the iOS project:
-
-```bash
-npm run mobile:ios
-```
-
-Android builds require Android Studio and the Android SDK. iOS builds require macOS and Xcode.
 
 ## Security
 
@@ -384,7 +348,7 @@ Some additional production safeguards, including malware scanning, a formal copy
 
 OpenShelf is an actively developed project.
 
-**Implemented:** Core authentication, book catalog, PDF contributions, download credits, online reading, bookmarks, recommendations, ratings, notifications, administration, dark theme, partial Pashto localization, and mobile project support.
+**Implemented:** Core authentication, book catalog, PDF contributions, download credits, online reading, bookmarks, recommendations, ratings, notifications, administration, dark theme, partial Pashto localization, and PWA support.
 
 **Still in development:**
 
