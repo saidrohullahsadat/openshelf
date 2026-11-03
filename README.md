@@ -18,7 +18,7 @@ It provides readers with a complete digital reading experience, including book d
 
 Administrators have access to a dedicated dashboard for managing books, categories, users, contributions, reviews, reports, download policies, and library activity.
 
-OpenShelf is designed to provide an organized, accessible, and reader-focused experience across desktop and mobile devices.
+OpenShelf is designed to provide an organized, accessible, and reader-focused experience across desktop and mobile browsers.
 
 ## Features
 
@@ -32,7 +32,7 @@ OpenShelf is designed to provide an organized, accessible, and reader-focused ex
 
 ### 📖 Reading Experience
 
-- Read PDF books directly inside the application.
+- Read PDF books directly inside the web application.
 - Download books with a credit-based allowance.
 - Save reading progress.
 - Bookmark individual PDF pages.
@@ -72,12 +72,12 @@ OpenShelf is designed to provide an organized, accessible, and reader-focused ex
 
 OpenShelf uses a distinct-book download allowance:
 
-| Rule                             | Allowance |
-| -------------------------------- | --------: |
-| Initial free downloads           |   3 books |
-| Published contributions required |         3 |
-| Additional download credits      |        10 |
-| Daily download limit             | 10 events |
+| Rule | Allowance |
+|---|---:|
+| Initial free downloads | 3 books |
+| Published contributions required | 3 |
+| Additional download credits | 10 |
+| Daily download limit | 10 events |
 
 - Downloading a new book consumes one distinct-book credit.
 - Downloading the same book again does not consume another distinct-book credit.
@@ -99,7 +99,7 @@ OpenShelf uses a distinct-book download allowance:
 
 ### 🌐 Interface & Accessibility
 
-- Responsive desktop and mobile layouts.
+- Responsive desktop and mobile-browser layouts.
 - Modern editorial-style interface.
 - Dark theme.
 - English and partial Pashto translations.
@@ -111,22 +111,22 @@ OpenShelf uses a distinct-book download allowance:
 
 ## Technology Stack
 
-| Technology            | Purpose                           |
-| --------------------- | --------------------------------- |
-| React                 | Frontend interface                |
-| Vite                  | Development server and build tool |
-| JavaScript            | Application programming           |
-| Tailwind CSS / CSS    | Styling                           |
-| Node.js               | Backend runtime                   |
-| Express.js            | REST API                          |
-| PostgreSQL            | Relational database               |
-| Drizzle ORM           | Database queries and schema       |
-| Neon serverless       | Hosted PostgreSQL connection pool |
-| Vercel Blob           | Private original PDF storage      |
-| Google Gen AI         | Gemini File Search and AI answers |
-| Argon2id              | Password hashing                  |
-| Google OpenID Connect | Authentication                    |
-| PDF                   | Digital book format               |
+| Technology | Purpose |
+|---|---|
+| React | Frontend interface |
+| Vite | Development server and build tool |
+| JavaScript | Application programming |
+| CSS | Styling |
+| Node.js | Backend runtime |
+| Express.js | REST API |
+| PostgreSQL | Relational database |
+| Drizzle ORM | Database queries and schema |
+| Neon serverless | Hosted PostgreSQL connection pool |
+| Vercel Blob | Private original PDF storage |
+| Google Gen AI | Gemini File Search and AI answers |
+| Argon2id | Password hashing |
+| Google OpenID Connect | Authentication |
+| PDF | Digital book format |
 
 ## Project Structure
 
@@ -134,14 +134,13 @@ OpenShelf uses a distinct-book download allowance:
 OpenShelf/
 ├── src/                    # React frontend application
 ├── server/                 # Express API and backend
-│   └── db/                 # Database schema and migrations
+│   ├── db/                 # Database schema and migrations
+│   ├── middleware/         # Authentication middleware
+│   ├── routes/             # API routes
+│   └── services/           # Storage and AI services
 ├── public/                 # Public assets and PWA files
 ├── api/index.js            # Vercel serverless Express entry point
-├── server/services/        # Private Blob storage and Gemini File Search
 ├── scripts/                # Database and storage maintenance tools
-├── dist/                   # Production build output
-├── app.js                  # Application entry
-├── auth.js                 # Authentication
 ├── index.html              # HTML entry point
 ├── drizzle.config.js       # Drizzle configuration
 ├── vite.config.js          # Vite configuration
@@ -183,24 +182,28 @@ Create your environment file:
 cp .env.example .env
 ```
 
-Configure the local PostgreSQL URL and administrator credentials in `.env`. For Neon, use the pooled connection string from the Neon dashboard.
+Configure your database connection and other required application settings in `.env`. For Neon, use the pooled connection string from the Neon dashboard.
 
 Example:
 
 ```env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/library
+NODE_ENV=development
+PORT=3000
 
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your-secure-password
+DATABASE_URL=postgresql://USER:PASSWORD@HOST/openshelf?sslmode=require
 
 MAX_UPLOAD_MB=50
 
 FREE_DOWNLOADS=3
 CONTRIBUTIONS_PER_UNLOCK=3
 DOWNLOADS_PER_UNLOCK=10
+SESSION_DAYS=14
+STORAGE_DIR=./storage
 ```
 
 Use your own secure credentials. Never commit `.env` to GitHub.
+
+Check the application source and configuration for any additional environment variables required by your setup.
 
 ### 4. Create the database
 
@@ -221,7 +224,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-The development seed provides sample books and starter categories. It is not intended for production.
+The development seed provides sample data where configured. It is not intended for production.
 
 ### 7. Start the application
 
@@ -231,13 +234,15 @@ npm run dev
 
 The development services use:
 
-| Service     | URL                          |
-| ----------- | ---------------------------- |
-| Frontend    | http://localhost:5173        |
-| Backend API | http://localhost:3000        |
-| API base    | http://localhost:3000/api/v1 |
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:3000 |
+| API base | http://localhost:3000/api/v1 |
 
 The Vite development server proxies `/api` requests to the Express backend.
+
+---
 
 ## Google Authentication
 
@@ -257,37 +262,33 @@ http://localhost:3000/api/v1/auth/google/callback
 ```env
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-GOOGLE_REDIRECT_URI=http://localhost:3000/api/v1/auth/google/callback
-
-APP_URL=http://localhost:5173
 ```
 
-Google authentication requires valid OAuth credentials. Native Android and iOS Google sign-in require additional redirect and deep-link configuration.
+Google authentication requires valid OAuth credentials and matching redirect configuration.
 
 ## API Overview
 
-All backend endpoints use:
+The backend API uses the following base path:
 
 ```text
 /api/v1
 ```
 
-| Module           | Main endpoints                                              |
-| ---------------- | ----------------------------------------------------------- |
-| Authentication   | `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me` |
-| Books            | `/books`, `/books/:id`, `/contributions`                    |
-| AI search        | `/ai/ask`, `/ai/indexing-status/:bookId`                    |
-| Categories       | `/categories`                                               |
-| Contributions    | `/contributions`                                            |
-| Personal library | `/me/books`, `/me/list`, `/me/likes`                        |
-| Downloads        | `/me/downloads`, `/me/credits`                              |
-| Reading          | `/me/reading`, `/books/:id/read`, `/books/:id/progress`     |
-| Recommendations  | `/books/:id/recommendations`                                |
-| Ratings          | `/books/:id/ratings`                                        |
-| Notifications    | `/me/notifications`                                         |
-| Administration   | `/admin/overview`, `/admin/contributions`                   |
-| Audit logs       | `/admin/audit-logs`                                         |
+| Module | Main endpoints |
+|---|---|
+| Authentication | `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me` |
+| Books | `/books`, `/books/:id`, `/contributions` |
+| AI search | `/ai/ask`, `/ai/indexing-status/:bookId` |
+| Categories | `/categories` |
+| Contributions | `/contributions` |
+| Personal library | `/me/books`, `/me/list`, `/me/likes` |
+| Downloads | `/me/downloads`, `/me/credits` |
+| Reading | `/me/reading`, `/books/:id/read`, `/books/:id/progress` |
+| Recommendations | `/books/:id/recommendations` |
+| Ratings | `/books/:id/ratings` |
+| Notifications | `/me/notifications` |
+| Administration | `/admin/overview`, `/admin/contributions` |
+| Audit logs | `/admin/audit-logs` |
 
 Additional endpoints support bookmarks, favorites, reports, moderation, user management, and credit-policy administration.
 
@@ -344,7 +345,7 @@ Create a production build:
 npm run build
 ```
 
-The latest recorded verification reported:
+The latest recorded development verification reported:
 
 - Unit tests: 12/12 passed.
 - Production frontend build: passed.
@@ -377,7 +378,7 @@ Some additional production safeguards, including malware scanning, a formal copy
 
 OpenShelf is an actively developed project.
 
-**Implemented:** Core authentication, book catalog, PDF contributions, download credits, online reading, bookmarks, recommendations, ratings, notifications, administration, dark theme, and partial Pashto localization.
+**Implemented:** Core authentication, book catalog, PDF contributions, download credits, online reading, bookmarks, recommendations, ratings, notifications, administration, dark theme, partial Pashto localization, and PWA support.
 
 **Still in development:**
 
