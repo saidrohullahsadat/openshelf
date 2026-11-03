@@ -644,24 +644,37 @@ function tr(text) {
 }
 const API_BASE = (import.meta.env.VITE_API_BASE || "/api/v1").replace(/\/$/, "");
 const api = async (path, options = {}) => {
-  const res = await fetch(`${API_BASE}${path}`, {
-    credentials: "include",
-    ...options,
-    headers: {
-      ...(options.body instanceof FormData
-        ? {}
-        : { "Content-Type": "application/json" }),
-      "X-Requested-With": "library",
-      ...options.headers,
-    },
-  });
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      credentials: "include",
+      ...options,
+      headers: {
+        ...(options.body instanceof FormData
+          ? {}
+          : { "Content-Type": "application/json" }),
+        "X-Requested-With": "library",
+        ...options.headers,
+      },
+    });
+  } catch {
+    throw new Error("Could not reach Open Shelf. Check your connection and try again.");
+  }
   if (res.status === 204) return null;
   const type = res.headers.get("content-type") || "";
   if (!res.ok) {
-    const e = type.includes("json")
-      ? await res.json()
-      : { error: "Request failed" };
-    throw Error(e.error || "Request failed");
+    let body = {};
+    if (type.includes("json")) {
+      try { body = await res.json(); } catch {}
+    }
+    if (res.status >= 500) {
+      const reference = res.headers.get("x-vercel-id") || body.requestId;
+      console.error("Open Shelf API request failed", { path, status: res.status, reference });
+      throw new Error(body.error && body.error !== "Internal server error"
+        ? body.error
+        : `Open Shelf is temporarily unavailable. Please try again shortly.${reference ? ` Reference: ${reference}` : ""}`);
+    }
+    throw Error(body.error || "The request could not be completed. Check the details and try again.");
   }
   return type.includes("json") ? res.json() : res;
 };
