@@ -1,6 +1,5 @@
 import React, { Suspense, lazy, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Capacitor } from "@capacitor/core";
 import {
   BrowserRouter,
   Routes,
@@ -1786,19 +1785,13 @@ function Auth({ mode, onUser }) {
               : "Join a community that believes good books are better shared.",
           )}
         </p>
-        {Capacitor.isNativePlatform() ? (
-          <p className="form-note">{tr("Google sign-in needs native app setup before it can be used here.")}</p>
-        ) : (
-          <>
-            <a className="button button-google" href={`${API_BASE}/auth/google`}>
-              <span className="google-mark">G</span>
-              {tr("Continue with Google")}
-            </a>
-            <div className="auth-divider">
-              <span>{tr("or")}</span>
-            </div>
-          </>
-        )}
+        <a className="button button-google" href={`${API_BASE}/auth/google`}>
+          <span className="google-mark">G</span>
+          {tr("Continue with Google")}
+        </a>
+        <div className="auth-divider">
+          <span>{tr("or")}</span>
+        </div>
         <form className="form" onSubmit={submit}>
           {!login && (
             <label>
@@ -2570,7 +2563,7 @@ function Reader({ user, authReady }) {
 }
 createRoot(document.getElementById("root")).render(<App />);
 
-if (import.meta.env.PROD && !Capacitor.isNativePlatform() && "serviceWorker" in navigator) {
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch((error) => {
       console.error("Service worker registration failed:", error);
