@@ -16,8 +16,12 @@ const GOOGLE_NONCE_COOKIE = "lib_google_nonce";
 const DRIVE_STATE_COOKIE = "lib_google_drive_state";
 const DRIVE_NONCE_COOKIE = "lib_google_drive_nonce";
 const GOOGLE_COOKIE_OPTIONS = { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 10 * 60 * 1000, path: "/api/v1/auth/google" };
-const appUrl = () => (process.env.APP_URL || "http://localhost:5173").replace(/\/$/, "");
-const googleRedirectUri = () => process.env.GOOGLE_REDIRECT_URI || `http://localhost:${Number(process.env.PORT || 3000)}/api/v1/auth/google/callback`;
+const appUrl = () => {
+ const configured = process.env.APP_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5173");
+ if (!configured) throw Object.assign(new Error("APP_URL is required in production"), { status: 503 });
+ return configured.replace(/\/$/, "");
+};
+const googleRedirectUri = () => process.env.GOOGLE_REDIRECT_URI || new URL("/api/v1/auth/google/callback", appUrl()).toString();
 const safeEqual = (a, b) => { if (typeof a !== "string" || typeof b !== "string") return false; const left = Buffer.from(a), right = Buffer.from(b); return left.length === right.length && crypto.timingSafeEqual(left, right); };
 const isNetworkError = error => error?.name === "TypeError" && error?.message === "fetch failed";
 export function authRoutes(db) {

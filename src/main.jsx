@@ -10,6 +10,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
+import { upload as uploadPrivateBlob } from "@vercel/blob/client";
 import {
   BookOpen,
   Search,
@@ -665,6 +666,16 @@ const api = async (path, options = {}) => {
   }
   return type.includes("json") ? res.json() : res;
 };
+const uploadWithProgress = (path, formData, onProgress) => new Promise((resolve, reject) => {
+  const request = new XMLHttpRequest();
+  request.open("POST", `${API_BASE}${path}`);
+  request.withCredentials = true;
+  request.setRequestHeader("X-Requested-With", "library");
+  request.upload.onprogress = (event) => { if (event.lengthComputable) onProgress(Math.round(event.loaded / event.total * 100)); };
+  request.onerror = () => reject(new Error("Upload connection failed. Check your connection and try again."));
+  request.onload = () => { let body = {}; try { body = JSON.parse(request.responseText); } catch {} if (request.status < 200 || request.status >= 300) reject(new Error(body.error || "Upload failed")); else resolve(body); };
+  request.send(formData);
+});
 function Cover({ book, large = false }) {
   const [failed, setFailed] = useState(false);
   return (
@@ -843,8 +854,14 @@ function App() {
           <Routes>
             <Route path="/" element={<Home user={user} />} />
             <Route path="/catalog" element={<Catalog />} />
-            <Route path="/book/:id" element={<BookPage user={user} />} />
-            <Route path="/read/:id" element={<Reader user={user} />} />
+            <Route
+              path="/book/:id"
+              element={<BookPage user={user} authReady={authReady} />}
+            />
+            <Route
+              path="/read/:id"
+              element={<Reader user={user} authReady={authReady} />}
+            />
             <Route
               path="/login"
               element={<Auth mode="login" onUser={applyUser} />}
@@ -853,7 +870,7 @@ function App() {
               path="/register"
               element={<Auth mode="register" onUser={applyUser} />}
             />
-            <Route path="/add" element={<AddBook />} />
+            <Route path="/add" element={<AddBook user={user} />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route
               path="/profile"
@@ -1138,6 +1155,10 @@ function Catalog() {
     [books, setBooks] = useState([]),
     [total, setTotal] = useState(0),
     [categories, setCategories] = useState([]),
+    [aiQuestion, setAiQuestion] = useState(""),
+    [aiAnswer, setAiAnswer] = useState(""),
+    [aiError, setAiError] = useState(""),
+    [aiLoading, setAiLoading] = useState(false),
     [error, setError] = useState("");
   const q = params.get("q") || "",
     sort = params.get("sort") || "newest",
@@ -1163,6 +1184,12 @@ function Catalog() {
     p.delete("page");
     setParams(p);
   };
+  const askAi = async (event) => {
+    event.preventDefault(); setAiError(""); setAiAnswer(""); setAiLoading(true);
+    try { const result = await api("/ai/ask", { method: "POST", body: JSON.stringify({ question: aiQuestion }) }); setAiAnswer(result.answer); }
+    catch (error) { setAiError(error.message); }
+    finally { setAiLoading(false); }
+  };
   return (
     <div className="page-wrap">
       <div className="page-title-row">
@@ -1178,6 +1205,11 @@ function Catalog() {
       <div className="catalog-search">
         <SearchBox initial={q} />
       </div>
+      <section className="ai-search-panel" aria-labelledby="ai-search-title">
+        <div><span className="eyebrow muted">OPEN SHELF AI</span><h2 id="ai-search-title">Ask across the books</h2><p>Get an answer grounded in passages from indexed books.</p></div>
+        <form onSubmit={askAi}><label className="sr-only" htmlFor="ai-question">Ask a question about the books</label><input id="ai-question" value={aiQuestion} onChange={(event)=>setAiQuestion(event.target.value)} maxLength={2000} minLength={3} required placeholder="What would you like to learn?"/><button className="button" disabled={aiLoading}>{aiLoading ? "Searching…" : "Ask AI"}</button></form>
+        {aiError && <p className="form-error" role="alert">{aiError}</p>}{aiAnswer && <div className="ai-answer" aria-live="polite">{aiAnswer}</div>}
+      </section>
       <div className="filter-row">
         <div className="filter-label">{tr("BROWSE BY")}</div>
         <select
@@ -1269,7 +1301,7 @@ function Catalog() {
     </div>
   );
 }
-function BookPage({ user }) {
+function BookPage({ user, authReady }) {
   const { id } = useParams(),
     [book, setBook] = useState(null),
     [error, setError] = useState(""),
@@ -1298,11 +1330,11 @@ function BookPage({ user }) {
   const action = async (kind, formatIndex) => {
     try {
       if (kind === "read") {
-        if (!user) return (location.href = "/login");
         location.href = `/read/${id}`;
         return;
       }
       if (kind === "external") {
+        if (!authReady) return;
         if (!user) {
           location.href = "/login";
           return;
@@ -1481,13 +1513,13 @@ function BookPage({ user }) {
                 <BookOpen size={16} /> Read online <ArrowRight size={14} />
               </a>
             ) : (
-              book.fileKey && (
+              book.hasFile && (
                 <button className="button" onClick={() => action("read")}>
                   <BookOpen size={16} /> Read online
                 </button>
               )
             )}
-            {book.fileKey && (
+            {book.hasFile && (
               <button
                 className="button button-outline"
                 onClick={() => action("download")}
@@ -1809,10 +1841,11 @@ function Auth({ mode, onUser }) {
     </div>
   );
 }
-function AddBook() {
+function AddBook({ user }) {
   const navigate = useNavigate();
   const [err, setErr] = useState(""),
-    [categories, setCats] = useState([]);
+    [categories, setCats] = useState([]),
+    [uploadProgress, setUploadProgress] = useState(null);
   useEffect(() => {
     api("/categories")
       .then((x) => setCats(x.categories))
@@ -1821,17 +1854,37 @@ function AddBook() {
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
+    setUploadProgress(0);
     const data = new FormData(e.currentTarget);
     const file = data.get("file");
     if (file instanceof File && file.size > 50 * 1024 * 1024) {
       setErr(tr("The PDF must be 50 MB or smaller."));
+      setUploadProgress(null);
       return;
     }
     try {
-      await api("/contributions", { method: "POST", body: data });
+      if (import.meta.env.VITE_BLOB_CLIENT_UPLOADS === "true") {
+        if (!(file instanceof File)) throw new Error("Choose a PDF file to upload.");
+        if (!user) throw new Error("Sign in to upload a book.");
+        const blob = await uploadPrivateBlob(`books/${user.id}/${window.crypto.randomUUID()}.pdf`, file, {
+          access: "private",
+          handleUploadUrl: `${API_BASE}/contributions/blob-upload`,
+          headers: { "X-Requested-With": "library" },
+          multipart: true,
+          onUploadProgress: ({ percentage }) => setUploadProgress(Math.round(percentage)),
+        });
+        const payload = Object.fromEntries(data.entries());
+        delete payload.file;
+        payload.blobPathname = blob.pathname;
+        payload.fileName = file.name;
+        await api("/contributions", { method: "POST", body: JSON.stringify(payload) });
+      } else {
+        await uploadWithProgress("/contributions", data, setUploadProgress);
+      }
       navigate("/dashboard?tab=my-books&submitted=1");
     } catch (e) {
       setErr(e.message);
+      setUploadProgress(null);
     }
   };
   return (
@@ -1850,6 +1903,7 @@ function AddBook() {
         onSubmit={submit}
         encType="multipart/form-data"
       >
+        {uploadProgress !== null && <div className="upload-progress" role="status"><span>Uploading PDF: {uploadProgress}%</span><progress max="100" value={uploadProgress} /></div>}
         <div className="form-columns">
           <label>
             {tr("Book title *")}
@@ -2088,6 +2142,15 @@ function Dashboard() {
       })
       .catch(() => {});
   }, []);
+  useEffect(() => {
+    const pending = books.filter(({ book }) => book.indexingStatus === "processing");
+    if (!pending.length) return;
+    const timer = setInterval(() => {
+      Promise.all(pending.map(({ book }) => api(`/ai/indexing-status/${book.id}`).then((status) => ({ id: book.id, ...status })).catch(() => null)))
+        .then((updates) => setBooks((current) => current.map((row) => { const status = updates.find((item) => item?.id === row.book.id); return status && status.status !== row.book.indexingStatus ? { ...row, book: { ...row.book, indexingStatus: status.status, indexedAt: status.indexedAt, indexingMessage: status.error } } : row; })));
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [books]);
   return (
     <div className="page-wrap dashboard">
       <div className="page-title-row">
@@ -2227,7 +2290,8 @@ function Dashboard() {
                   <strong>{book.title}</strong>
                   <span>{book.author}</span>
                   <small>
-                    {c.reviewNote || tr("Submitted to the review team")}
+                    {c.reviewNote || tr("Submitted to the review team")} · AI indexing: {tr(book.indexingStatus || "pending")}
+                    {book.indexingMessage && ` · ${book.indexingMessage}`}
                   </small>
                 </div>
                 <span className={`status status-${c.status}`}>
@@ -2358,7 +2422,7 @@ function NotificationsPanel() {
     </div>
   );
 }
-function Reader({ user }) {
+function Reader({ user, authReady }) {
   const { id } = useParams(),
     [page, setPage] = useState(1),
     [total, setTotal] = useState(null),
@@ -2388,6 +2452,7 @@ function Reader({ user }) {
     } catch {}
   };
   useEffect(() => {
+    if (!authReady) return;
     if (!user) {
       location.href = "/login";
       return;
@@ -2401,7 +2466,7 @@ function Reader({ user }) {
         setReady(true);
       })
       .catch(() => setReady(true));
-  }, [id, user]);
+  }, [id, user, authReady]);
   useEffect(() => {
     if (!ready || !user) return;
     let timer = setTimeout(

@@ -71,7 +71,7 @@ function AdminTools({ api, apiBase, tr }) {
         </p>
       )}
       {searchParams.get("drive") === "connected" && (
-        <p className="notice">{tr("Google Drive is connected. New book uploads will be saved there.")}</p>
+        <p className="notice">{tr("New production PDFs are stored in private Vercel Blob. This Google Drive connection is retained for legacy files.")}</p>
       )}
       {tab === "credits" && payload?.policy && (
         <form
@@ -135,10 +135,10 @@ function AdminTools({ api, apiBase, tr }) {
             <p>
               {payload.storage.connected
                 ? `${tr("Connected account")}: ${payload.storage.email}`
-                : tr("Uploads are stored locally until Google Drive is connected.")}
+                : tr("Google Drive is not connected. New production uploads use private Vercel Blob.")}
             </p>
             {payload.storage.connected && (
-              <p>{tr("New book uploads will be saved to this Drive account.")}</p>
+              <p>{tr("New production uploads use private Vercel Blob; existing Drive files remain readable.")}</p>
             )}
           </div>
           {!payload.storage.connected ? (
@@ -179,9 +179,11 @@ function AdminTools({ api, apiBase, tr }) {
               <div className="admin-tool-row" key={row.id}>
                 <strong>{row.title}</strong>
                 <span>
-                  {row.author} · {tr(row.status)}
+                  {row.author} · {tr(row.status)} · AI indexing: {tr(row.indexingStatus || "pending")}
                 </span>
+                {row.indexingError && <small>{row.indexingError}</small>}
                 <div>
+                  {(row.indexingStatus === "failed" || row.indexingStatus === "pending") && <button className="button button-outline button-small" onClick={() => act(`/admin/books/${row.id}/index`, "POST", {})}>Retry indexing</button>}
                   <button
                     className="button button-small"
                     onClick={() =>

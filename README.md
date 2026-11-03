@@ -107,13 +107,6 @@ OpenShelf uses a distinct-book download allowance:
 - Progressive Web App (PWA) support.
 - Offline-cached application shell.
 
-### 📱 Mobile Application Support
-
-- Capacitor 7 integration.
-- Android project support.
-- iOS project support.
-- Shared frontend and backend architecture.
-
 ---
 
 ## Technology Stack
@@ -128,30 +121,30 @@ OpenShelf uses a distinct-book download allowance:
 | Express.js            | REST API                          |
 | PostgreSQL            | Relational database               |
 | Drizzle ORM           | Database queries and schema       |
+| Neon serverless       | Hosted PostgreSQL connection pool |
+| Vercel Blob           | Private original PDF storage      |
+| Google Gen AI         | Gemini File Search and AI answers |
 | Argon2id              | Password hashing                  |
 | Google OpenID Connect | Authentication                    |
 | PDF                   | Digital book format               |
-| Capacitor 7           | Native mobile support             |
 
 ## Project Structure
 
 ```text
 OpenShelf/
-├── client/                 # Frontend application
+├── src/                    # React frontend application
 ├── server/                 # Express API and backend
 │   └── db/                 # Database schema and migrations
 ├── public/                 # Public assets and PWA files
-├── scripts/                # Project scripts
-├── android/                # Android application
-├── ios/                    # iOS application
-├── storage/                # Private uploaded PDF files
+├── api/index.js            # Vercel serverless Express entry point
+├── server/services/        # Private Blob storage and Gemini File Search
+├── scripts/                # Database and storage maintenance tools
 ├── dist/                   # Production build output
 ├── app.js                  # Application entry
 ├── auth.js                 # Authentication
 ├── index.html              # HTML entry point
 ├── drizzle.config.js       # Drizzle configuration
 ├── vite.config.js          # Vite configuration
-├── capacitor.config.json   # Capacitor configuration
 ├── package.json
 ├── .env.example
 └── README.md
@@ -190,7 +183,7 @@ Create your environment file:
 cp .env.example .env
 ```
 
-Configure your database connection and administrator credentials in `.env`.
+Configure the local PostgreSQL URL and administrator credentials in `.env`. For Neon, use the pooled connection string from the Neon dashboard.
 
 Example:
 
@@ -200,7 +193,6 @@ DATABASE_URL=postgresql://postgres:password@localhost:5432/library
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=your-secure-password
 
-STORAGE_DIR=./storage
 MAX_UPLOAD_MB=50
 
 FREE_DOWNLOADS=3
@@ -284,7 +276,8 @@ All backend endpoints use:
 | Module           | Main endpoints                                              |
 | ---------------- | ----------------------------------------------------------- |
 | Authentication   | `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me` |
-| Books            | `/books`, `/books/:id`                                      |
+| Books            | `/books`, `/books/:id`, `/contributions`                    |
+| AI search        | `/ai/ask`, `/ai/indexing-status/:bookId`                    |
 | Categories       | `/categories`                                               |
 | Contributions    | `/contributions`                                            |
 | Personal library | `/me/books`, `/me/list`, `/me/likes`                        |
@@ -307,9 +300,35 @@ OpenShelf uses PostgreSQL for relational data and Drizzle ORM for database opera
 - Migration execution: `npm run db:migrate`
 - Development seed: `npm run db:seed`
 
-Uploaded PDF files are stored in a private storage directory configured through `STORAGE_DIR`.
+New production PDFs are stored in a private Vercel Blob store. PostgreSQL stores the private Blob pathname and file metadata. Authenticated API routes stream PDFs for reading and downloading; the Blob pathname and access token are not sent to the frontend. Local development uses the ignored `STORAGE_DIR` only when Blob credentials are absent. Existing Drive and local file references remain readable while migrating old data.
 
-**Important:** Keep uploaded files outside publicly accessible directories. Back up the PostgreSQL database and file storage together.
+### Neon, Blob, and Gemini setup
+
+1. Create a Neon PostgreSQL project and copy its pooled connection string to `DATABASE_URL`. Production detects Neon URLs and uses `@neondatabase/serverless` with Drizzle's Neon serverless pool driver; local PostgreSQL URLs use the existing `pg` driver. Keep the connection pool small for serverless instances.
+2. Create a **private** Vercel Blob store attached to the Vercel project. Vercel supplies `BLOB_READ_WRITE_TOKEN`; keep it as a server environment variable. Set `MAX_UPLOAD_MB` to the desired limit (default 50).
+3. In the Vercel project build environment, set `VITE_BLOB_CLIENT_UPLOADS=true`. Production browser uploads then use short-lived, restricted upload tokens and send large PDF bytes directly to Blob instead of through the 4.5 MB serverless request body limit. The private store token is never sent to the browser. Local upload uses the Express multipart endpoint.
+4. Create a Gemini API key in Google AI Studio and set `GEMINI_API_KEY`. If `GEMINI_FILE_SEARCH_STORE_NAME` is empty, the server reuses an OpenShelf store or creates one and persists its resource name in `system_settings`. You can provide an existing resource name with that environment variable instead. `GEMINI_MODEL` defaults to `gemini-2.5-flash`.
+5. Set `CRON_SECRET` to a long random secret. The Vercel cron route polls asynchronous Gemini indexing operations once daily, which is compatible with Hobby. On Pro or Enterprise, change the schedule in `vercel.json` to `*/5 * * * *` for more frequent polling. A signed-in user can also check their own book's status; admins can retry failed indexing from Administration → Books.
+
+Migration `0009_neon_blob_gemini_indexing.sql` adds nullable Blob and Gemini references and indexing status without replacing existing tables or files. Migration `0010_gemini_indexing_errors.sql` adds a bounded error message field. Run committed migrations with `npm run db:migrate`; production deployment must not run `drizzle-kit push` or generate migrations against production. A book record remains saved when Gemini indexing fails, and its original Blob PDF is retained for retry.
+
+Before deploying data that still points to local disk or Google Drive, configure a working Blob store and run `npm run storage:migrate:blob` from an environment that can still read those original files. The script copies PDFs to private Blob, retains the old file references for rollback, and attempts indexing for approved books. Review its per-book output and failed count before removing or retiring the old storage.
+
+### Vercel deployment
+
+This repository is configured as one Vercel project: the root builds the Vite app to `dist`, while `api/index.js` exports the existing Express app as a Node serverless function. `vercel.json` rewrites `/api/v1/*` and `/health` to that handler and provides the SPA fallback. Keep the Vercel project root at the repository root and use the committed build/output settings. Configure `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `GEMINI_API_KEY`, `GEMINI_FILE_SEARCH_STORE_NAME` (optional), `GEMINI_MODEL`, `CLIENT_URL`, `APP_URL`, `CORS_ORIGINS` (optional comma-separated extra origins), `CRON_SECRET`, `SESSION_DAYS`, and `SESSION_COOKIE_SAMESITE` in Vercel for Production and Preview as appropriate. Set `NODE_ENV=production` and the build variable `VITE_BLOB_CLIENT_UPLOADS=true`. Configure Google OAuth redirect URI to `https://YOUR_DOMAIN/api/v1/auth/google/callback`, and set matching `GOOGLE_REDIRECT_URI` and `APP_URL`. Use the same Vercel origin for frontend and API so the existing HTTP-only session cookie remains same-site. Run the database migrations once before serving production traffic.
+
+AI endpoint example (requires an authenticated session cookie and the existing `X-Requested-With: library` CSRF header):
+
+```http
+POST /api/v1/ai/ask
+Content-Type: application/json
+X-Requested-With: library
+
+{"question":"What do the indexed books say about photosynthesis?"}
+```
+
+AI search is rate limited to 12 requests per minute per runtime instance. Gemini and Blob operations require real configured credentials; local build/unit tests do not verify external account connectivity.
 
 ## Testing & Build
 
@@ -333,32 +352,6 @@ The latest recorded verification reported:
 - Development database migrations: applied successfully.
 
 These are recorded development results, not a guarantee of production readiness.
-
-## Mobile Development
-
-OpenShelf includes Capacitor support for Android and iOS.
-
-Configure the mobile API URL using `.env.mobile` based on `.env.mobile.example`.
-
-Synchronize the native projects:
-
-```bash
-npm run mobile:sync
-```
-
-Open the Android project:
-
-```bash
-npm run mobile:android
-```
-
-Open the iOS project:
-
-```bash
-npm run mobile:ios
-```
-
-Android builds require Android Studio and the Android SDK. iOS builds require macOS and Xcode.
 
 ## Security
 
@@ -384,7 +377,7 @@ Some additional production safeguards, including malware scanning, a formal copy
 
 OpenShelf is an actively developed project.
 
-**Implemented:** Core authentication, book catalog, PDF contributions, download credits, online reading, bookmarks, recommendations, ratings, notifications, administration, dark theme, partial Pashto localization, and mobile project support.
+**Implemented:** Core authentication, book catalog, PDF contributions, download credits, online reading, bookmarks, recommendations, ratings, notifications, administration, dark theme, and partial Pashto localization.
 
 **Still in development:**
 

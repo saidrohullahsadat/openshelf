@@ -1,0 +1,15 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/index.js": { "maxDuration": 60, "memory": 1024 }
+  },
+  "rewrites": [
+    { "source": "/api/v1/(.*)", "destination": "/api/index.js" },
+    { "source": "/health", "destination": "/api/index.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/v1/internal/indexing/poll", "schedule": "0 0 * * *" }
+  ]
+}

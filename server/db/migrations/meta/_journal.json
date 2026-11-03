@@ -64,6 +64,20 @@
       "when": 1793164516222,
       "tag": "0008_careless_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793719888708,
+      "tag": "0009_neon_blob_gemini_indexing",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793719985856,
+      "tag": "0010_gemini_indexing_errors",
+      "breakpoints": true
     }
   ]
 }

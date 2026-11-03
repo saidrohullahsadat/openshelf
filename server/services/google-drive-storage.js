@@ -168,6 +168,18 @@ export async function uploadDriveBook(db, localPath, fileName) {
 
 export const isDriveFileKey = (fileKey) => typeof fileKey === "string" && fileKey.startsWith("gdrive:");
 
+export async function downloadDriveBookBuffer(db, fileKey) {
+  if (!isDriveFileKey(fileKey)) throw new Error("Google Drive file key is invalid");
+  const id = fileKey.slice("gdrive:".length);
+  const { accessToken } = await connectionWithAccessToken(db);
+  const response = await fetch(`${DRIVE_FILES_URL}/${encodeURIComponent(id)}?alt=media`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    redirect: "error",
+  });
+  if (!response.ok) throw Object.assign(new Error(`Google Drive could not return the PDF (${response.status})`), { status: response.status === 404 ? 404 : 502 });
+  return Buffer.from(await response.arrayBuffer());
+}
+
 export async function streamDriveBook(db, fileKey, res, { fileName, disposition = "attachment" } = {}) {
   if (!isDriveFileKey(fileKey)) throw new Error("Google Drive file key is invalid");
   const id = fileKey.slice("gdrive:".length);

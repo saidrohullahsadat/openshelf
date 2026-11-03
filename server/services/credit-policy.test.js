@@ -10,8 +10,9 @@ describe("distinct download allowance", () => {
     expect(calculateAllowance({ used: 3, approvedContributions: 1 })).toMatchObject({ allowance: 3, remaining: 0, credits: 0 });
   });
 
-  it("unlocks one additional download per two approved contributions", () => {
-    expect(calculateAllowance({ used: 3, approvedContributions: 2 })).toMatchObject({ allowance: 4, remaining: 1, credits: 1 });
+  it("unlocks ten more downloads after three approved contributions", () => {
+    expect(calculateAllowance({ used: 3, approvedContributions: 2 })).toMatchObject({ allowance: 3, remaining: 0, credits: 0 });
+    expect(calculateAllowance({ used: 3, approvedContributions: 3 })).toMatchObject({ allowance: 13, remaining: 10, credits: 10 });
   });
 
   it("does not count a pending contribution", () => {

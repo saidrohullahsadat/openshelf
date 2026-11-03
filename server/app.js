@@ -6,7 +6,9 @@ import { loadUser,csrfGuard } from "./middleware/auth.js";
 import { authRoutes } from "./routes/auth.js";
 import { libraryRoutes } from "./routes/library.js";
 const allowedOrigins = new Set(
-  (process.env.CORS_ORIGINS || "")
+  [process.env.CORS_ORIGINS, process.env.CLIENT_URL, process.env.APP_URL]
+    .filter(Boolean)
+    .join(",")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),
@@ -28,6 +30,7 @@ function corsForConfiguredOrigins(req, res, next) {
 export function createApp(db) {
   const app = express();
   app.disable("x-powered-by");
+  app.set("trust proxy", 1);
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(corsForConfiguredOrigins);
   app.use(express.json({ limit: "100kb" }));

@@ -62,6 +62,7 @@ export const requireRole = (role) => (req, res, next) =>
       ? res.status(403).json({ error: "Forbidden" })
       : next();
 export const csrfGuard = (req, res, next) =>
+  req.path === "/api/v1/contributions/blob-upload" ||
   ["GET", "HEAD", "OPTIONS"].includes(req.method) ||
   req.get("X-Requested-With") === "library"
     ? next()

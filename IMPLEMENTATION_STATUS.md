@@ -29,7 +29,7 @@ Updated 2026-10-26. Checklist reflects the pasted full-scope requirements and th
 - [ ] Other account settings.
 - [x] Unit coverage for credit-policy boundaries and recommendation ranking/exclusions/cold-start behavior.
 - [ ] Integration/concurrency/security tests for auth, permissions, catalog, moderation, uploads, allowance, recommendation, progress, and file access.
-- [ ] Production/deployment operations guidance and full UI translation coverage.
+- [x] Production/deployment operations guidance; full UI translation coverage remains incomplete.
 
 ## Work completed in this continuation
 - [x] Report endpoint verifies a valid published book before insertion.
@@ -55,3 +55,22 @@ Updated 2026-10-26. Checklist reflects the pasted full-scope requirements and th
 - Development web/API processes are running at `http://localhost:5173/` and port 3000. A temporary PostgreSQL 16 database on port 55432 has the migrations applied and development seed data loaded; the admin login endpoint returned HTTP 200.
 - The `.env` and PostgreSQL cluster are development-only and stored in this workspace/`/tmp`; do not use the sample password outside this temporary environment. Google OAuth credentials are not configured yet, so Google sign-in remains inactive until `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set.
 - Update this file after each implementation stage with actual test/build results. Do not mark the project complete while checklist items remain.
+
+## Production deployment preparation (2026-11-03)
+- [x] Added Neon serverless Pool + Drizzle runtime client for Vercel and kept the existing PostgreSQL schema/migration history.
+- [x] Kept local development compatible with ordinary PostgreSQL by selecting the existing `pg` driver for non-Neon URLs; Neon URLs use the Neon serverless driver. A configured local `SELECT 1` now succeeds.
+- [x] Fixed Gemini operation polling to pass the SDK's `UploadToFileSearchStoreOperation` instance instead of a plain object; saved indexing operations can now be polled.
+- [x] Added additive migrations `0009_neon_blob_gemini_indexing.sql` and `0010_gemini_indexing_errors.sql` for Blob path, Gemini references, operation state, and retry errors.
+- [x] Added authenticated, private Vercel Blob storage for new production uploads and protected streaming for read/download/admin moderation routes. Public API book objects no longer include storage or Gemini resource paths.
+- [x] Added signed, size-limited Vercel client upload tokens for production uploads above the Vercel function body limit; the server checks the uploaded PDF signature before creating the book row. Local development retains its local upload fallback.
+- [x] Added a non-destructive `npm run storage:migrate:blob` utility to copy legacy local or connected Drive PDFs into Blob without removing the previous references.
+- [x] Added the official `@google/genai` File Search store, reusing a configured/database store or creating and persisting one. Book operations are stored and polled asynchronously; failures retain the original PDF and can be retried by an admin.
+- [x] Added authenticated/rate-limited AI questions, an AI search panel, indexing status display/polling, and admin retry controls.
+- [x] Added Vercel configuration for the same-origin SPA + Express function and a daily Hobby-compatible indexing poll schedule; Pro/Enterprise deployments can increase the cron frequency.
+- [x] Updated environment template, deployment and migration documentation, and clarified that legacy Drive storage is no longer used for new production uploads.
+- [x] Fixed a stale allowance unit test so it reflects the existing rule of three approved contributions unlocking ten downloads.
+- [x] Verification on 2026-11-03: `npx drizzle-kit check` passed; `npm run db:migrate` applied migrations to the configured local development PostgreSQL database; `npm test` passed (12/12) on Vitest 4; `npm run build` passed; Node syntax checks passed for the backend entry and storage/indexing services; `npm audit --omit=dev` found 0 production vulnerabilities.
+- [x] Reverification after operation-polling fix: SDK operation instance check passed; `npm test` passed (12/12); `npm run build` passed.
+- [x] Updated Drizzle ORM, Zod, React Router, Vitest, and Drizzle Kit to patched/current compatible releases; reran app tests, build, migration check, and development migrations successfully.
+- [ ] Full `npm audit` still reports development-tool advisories through Drizzle Kit's nested esbuild-kit chain. Production dependency audit is clean.
+- [ ] External Neon connectivity, Vercel Blob upload/retrieval, Gemini store creation/indexing/search, and deployed Vercel behavior remain untested because this workspace has no Neon, Blob, Gemini, or cron credentials. Set those values before deployment and run the documented smoke checks.
