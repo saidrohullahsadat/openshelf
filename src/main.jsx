@@ -188,6 +188,7 @@ const TRANSLATIONS = {
     "Nothing to show here yet.": "هنوز موردی برای نمایش وجود ندارد.",
     Profile: "نمایه",
     "Log in": "ورود",
+    Join: "عضویت",
     "Join the library": "عضویت در کتابخانه",
     "YOUR NEXT CHAPTER STARTS HERE": "فصل بعدی شما از اینجا آغاز می‌شود",
     "Ideas worth": "ایده‌هایی که ارزش دارند",
@@ -244,6 +245,7 @@ const TRANSLATIONS = {
     Admin: "مدیر",
     Profile: "پروفایل",
     "Log in": "ننوتل",
+    Join: "ګډون",
     "Join the library": "کتابتون سره یوځای کېدل",
     "YOUR NEXT CHAPTER STARTS HERE": "ستاسو راتلونکی فصل له دې ځایه پیلېږي",
     "Ideas worth": "هغه مفکورې چې ارزښت لري",
@@ -451,6 +453,7 @@ const EXTRA_TRANSLATIONS = {
     "Nothing to show here yet.": "تر اوسه د ښودلو لپاره څه نشته.",
     Profile: "پروفایل",
     "Log in": "ننوتل",
+    Join: "ګډون",
     "Join the library": "له کتابتون سره یوځای شئ",
     "Switch to dark mode": "تیاره بڼه فعاله کړئ",
     "Switch to light mode": "روښانه بڼه فعاله کړئ",
@@ -850,7 +853,9 @@ function App() {
                   {tr("Log in")}
                 </Link>
                 <Link className="button button-small" to="/register">
-                  {tr("Join the library")} <ArrowRight size={14} />
+                  <span className="join-full">{tr("Join the library")}</span>
+                  <span className="join-compact">{tr("Join")}</span>
+                  <ArrowRight size={14} />
                 </Link>
               </>
             )}
